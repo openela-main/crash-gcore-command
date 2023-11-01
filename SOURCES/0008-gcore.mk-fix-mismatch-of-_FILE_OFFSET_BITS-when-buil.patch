@@ -1,0 +1,43 @@
+From d2795659986dacc51e98a3d1dbc8b673582c20fe Mon Sep 17 00:00:00 2001
+From: HATAYAMA Daisuke <d.hatayama@fujitsu.com>
+Date: Tue, 28 Jun 2022 03:54:46 +0900
+Subject: [PATCH 8/8] gcore.mk: fix mismatch of _FILE_OFFSET_BITS when building
+ gcore.so
+
+On arm and mips, while _FILE_OFFSET_BITS=64 is used when building
+gcore.so by make extensions, it is not used by gcore.mk.
+
+Fix this inconsistency by using _FILE_OFFSET_BITS=64 in gcore.mk on
+arm and mips.
+
+Signed-off-by: HATAYAMA Daisuke <d.hatayama@fujitsu.com>
+Signed-off-by: Lianbo Jiang <lijiang@redhat.com>
+---
+ src/gcore.mk | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/gcore.mk b/src/gcore.mk
+index 4af292b79c60..1fd4d84c2ded 100644
+--- a/src/gcore.mk
++++ b/src/gcore.mk
+@@ -32,7 +32,7 @@ endif
+ 
+ ifeq ($(shell arch), arm)
+   TARGET=ARM
+-  TARGET_CFLAGS=
++  TARGET_CFLAGS=-D_FILE_OFFSET_BITS=64
+   ARCH=SUPPORTED
+ endif
+ 
+@@ -44,7 +44,7 @@ endif
+ 
+ ifeq ($(shell arch), mips)
+   TARGET=MIPS
+-  TARGET_CFLAGS=
++  TARGET_CFLAGS=-D_FILE_OFFSET_BITS=64
+   ARCH=SUPPORTED
+ endif
+ 
+-- 
+2.37.1
+

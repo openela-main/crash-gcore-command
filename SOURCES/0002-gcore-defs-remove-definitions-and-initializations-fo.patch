@@ -1,0 +1,60 @@
+From 6f4357340807f70bd1999f0b88435361c583f0b9 Mon Sep 17 00:00:00 2001
+From: HATAYAMA Daisuke <d.hatayama@fujitsu.com>
+Date: Fri, 25 Feb 2022 04:51:06 -0500
+Subject: [PATCH 2/8] gcore, defs: remove definitions and initializations for
+ saved_auxv entries of offset and size tables
+
+saved_auxv entries of offset and size tables are now not used in the
+source code by the previous commit. Let's remove definitions and
+initializations for them.
+
+Signed-off-by: HATAYAMA Daisuke <d.hatayama@fujitsu.com>
+Signed-off-by: Lianbo Jiang <lijiang@redhat.com>
+---
+ src/gcore.c               | 2 --
+ src/libgcore/gcore_defs.h | 2 --
+ 2 files changed, 4 deletions(-)
+
+diff --git a/src/gcore.c b/src/gcore.c
+index 5b78d9980887..f86b15f8a9f6 100644
+--- a/src/gcore.c
++++ b/src/gcore.c
+@@ -371,7 +371,6 @@ static void gcore_offset_table_init(void)
+ 	GCORE_MEMBER_OFFSET_INIT(mm_struct_arg_end, "mm_struct", "arg_end");
+ 	GCORE_MEMBER_OFFSET_INIT(mm_struct_map_count, "mm_struct", "map_count");
+ 	GCORE_MEMBER_OFFSET_INIT(mm_struct_reserved_vm, "mm_struct", "reserved_vm");
+-	GCORE_MEMBER_OFFSET_INIT(mm_struct_saved_auxv, "mm_struct", "saved_auxv");
+ 	GCORE_MEMBER_OFFSET_INIT(mm_struct_saved_files, "mm_struct", "saved_files");
+ 	GCORE_MEMBER_OFFSET_INIT(mm_struct_context, "mm_struct", "context");
+ 	GCORE_MEMBER_OFFSET_INIT(pid_level, "pid", "level");
+@@ -520,7 +519,6 @@ static void gcore_size_table_init(void)
+ {
+ 	GCORE_STRUCT_SIZE_INIT(i387_union, "i387_union");
+ 	GCORE_STRUCT_SIZE_INIT(mm_context_t, "mm_context_t");
+-	GCORE_MEMBER_SIZE_INIT(mm_struct_saved_auxv, "mm_struct", "saved_auxv");
+ 	GCORE_MEMBER_SIZE_INIT(mm_struct_saved_files, "mm_struct", "saved_files");
+ 	GCORE_MEMBER_SIZE_INIT(thread_struct_ds, "thread_struct", "ds");
+ 	GCORE_MEMBER_SIZE_INIT(thread_struct_es, "thread_struct", "es");
+diff --git a/src/libgcore/gcore_defs.h b/src/libgcore/gcore_defs.h
+index df87851d23a1..3233ea533ca0 100644
+--- a/src/libgcore/gcore_defs.h
++++ b/src/libgcore/gcore_defs.h
+@@ -1072,7 +1072,6 @@ struct gcore_offset_table
+ 	long mm_struct_arg_end;
+ 	long mm_struct_map_count;
+ 	long mm_struct_reserved_vm;
+-	long mm_struct_saved_auxv;
+ 	long mm_struct_saved_files;
+ 	long mm_struct_context;
+ 	long pid_level;
+@@ -1148,7 +1147,6 @@ struct gcore_offset_table
+ struct gcore_size_table
+ {
+ 	long mm_context_t;
+-	long mm_struct_saved_auxv;
+ 	long mm_struct_saved_files;
+ 	long thread_struct_ds;
+ 	long thread_struct_es;
+-- 
+2.37.1
+

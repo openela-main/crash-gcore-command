@@ -1,0 +1,129 @@
+From 4cb65a0d9168778d120920418b968d05da10989f Mon Sep 17 00:00:00 2001
+From: HATAYAMA Daisuke <d.hatayama@fujitsu.com>
+Date: Fri, 25 Feb 2022 04:59:48 -0500
+Subject: [PATCH 3/8] gcore: fix memory allocation failure during processing
+ NT_AUXV note
+
+For crash dumps generated using kernel-4.18.0-365.el8 or later on
+CentOS stream 8, crash gcore command fails as follows:
+
+    crash> gcore -v 7 -f 128 10604
+    gcore: Opening file core.10604.test-dumpfilter ...
+    gcore: done.
+    gcore: Writing ELF header ...
+    gcore:  done.
+    gcore: Retrieving and writing note information ...
+    gcore: zero-size memory allocation! (called from 7fd558ce1e05)
+    Failed.
+
+This memory allocation failure occurs in fill_auxv_note() that creates
+NT_AUXV note due to saved_auxv entries of size and offset tables are
+somehow 0.
+
+This is because during the merge of the upstream kernel commit
+1c33bb0507508af24fd754dd7123bd8e997fab2f (x86/elf: Support a new ELF
+aux vector AT_MINSIGSTKSZ), location of saved_auxv of struct mm_struct
+has been moved as workaround in order to avoid kABI breakage.
+
+Fix this by using RHEL-specific location for saved_auxv if there is
+member rh_reserved_saved_auxv in struct mm_struct.
+
+Signed-off-by: HATAYAMA Daisuke <d.hatayama@fujitsu.com>
+Signed-off-by: Lianbo Jiang <lijiang@redhat.com>
+---
+ src/libgcore/gcore_coredump.c | 54 +++++++++++++++++++++++++++++------
+ 1 file changed, 46 insertions(+), 8 deletions(-)
+
+diff --git a/src/libgcore/gcore_coredump.c b/src/libgcore/gcore_coredump.c
+index 6f57b21b62b6..c14cc116e951 100644
+--- a/src/libgcore/gcore_coredump.c
++++ b/src/libgcore/gcore_coredump.c
+@@ -18,6 +18,10 @@
+ 
+ static struct elf_note_info *elf_note_info_init(void);
+ 
++static void get_auxv_size_addr(struct task_context *tc,
++			       size_t *size,
++			       ulong *addr);
++
+ static void fill_prstatus_note(struct elf_note_info *info,
+ 			       struct task_context *tc,
+ 			       struct memelfnote *memnote);
+@@ -923,18 +927,49 @@ compat_fill_prstatus_note(struct elf_note_info *info,
+ 
+ #endif /* GCORE_ARCH_COMPAT */
+ 
++static void get_auxv_size_addr(struct task_context *tc,
++			       size_t *psize,
++			       ulong *paddr)
++{
++	size_t size;
++	ulong addr;
++
++	if (MEMBER_EXISTS("mm_struct", "rh_reserved_saved_auxv")) {
++		ulong mm_rh;
++
++		size = MEMBER_SIZE("mm_struct_rh", "saved_auxv");
++		readmem(task_mm(tc->task, FALSE) + MEMBER_OFFSET("mm_struct", "mm_rh"),
++			KVADDR,
++			&mm_rh,
++			sizeof(mm_rh),
++			"mm_struct mm_rh",
++			gcore_verbose_error_handle());
++		addr = mm_rh + MEMBER_OFFSET("mm_struct_rh", "saved_auxv");
++	} else {
++		size = MEMBER_SIZE("mm_struct", "saved_auxv");
++		addr = task_mm(tc->task, FALSE) +
++			MEMBER_OFFSET("mm_struct", "saved_auxv");
++	}
++
++	*psize = size;
++	*paddr = addr;
++}
++
+ static void
+ fill_auxv_note(struct elf_note_info *info, struct task_context *tc,
+ 	       struct memelfnote *memnote)
+ {
+ 	ulong *auxv;
++	ulong addr;
++	size_t size;
+ 	int i;
+ 
+-	auxv = (ulong *)GETBUF(MEMBER_SIZE("mm_struct", "saved_auxv"));
++	get_auxv_size_addr(tc, &size, &addr);
+ 
+-	readmem(task_mm(tc->task, FALSE) +
+-		MEMBER_OFFSET("mm_struct", "saved_auxv"), KVADDR, auxv,
+-		MEMBER_SIZE("mm_struct", "saved_auxv"), "fill_auxv_note",
++	auxv = (ulong *)GETBUF(size);
++
++	readmem(addr, KVADDR, auxv,
++		size, "fill_auxv_note",
+ 		gcore_verbose_error_handle());
+ 
+ 	i = 0;
+@@ -954,13 +989,16 @@ compat_fill_auxv_note(struct elf_note_info *info,
+ 		      struct memelfnote *memnote)
+ {
+ 	uint32_t *auxv;
++	ulong addr;
++	size_t size;
+ 	int i;
+ 
+-	auxv = (uint32_t *)GETBUF(MEMBER_SIZE("mm_struct", "saved_auxv"));
++	get_auxv_size_addr(tc, &size, &addr);
++
++	auxv = (uint32_t *)GETBUF(size);
+ 
+-	readmem(task_mm(tc->task, FALSE) +
+-		MEMBER_OFFSET("mm_struct", "saved_auxv"), KVADDR, auxv,
+-		MEMBER_SIZE("mm_struct", "saved_auxv"), "fill_auxv_note32",
++	readmem(addr, KVADDR, auxv,
++		size, "fill_auxv_note32",
+ 		gcore_verbose_error_handle());
+ 
+ 	i = 0;
+-- 
+2.37.1
+
