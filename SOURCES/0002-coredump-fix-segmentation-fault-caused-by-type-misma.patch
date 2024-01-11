@@ -1,0 +1,59 @@
+From 1ba701c1d7bd94cc5a02f51652712acdcbf0875c Mon Sep 17 00:00:00 2001
+From: Vincent Whitchurch <vincent.whitchurch@axis.com>
+Date: Tue, 21 Jun 2022 09:15:33 +0000
+Subject: [PATCH 2/5] coredump: fix segmentation fault caused by type mismatch
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+crash gcore command on ARM sometimes results in segmentation fault:
+
+    crash> gcore -v 0
+    Segmentation fault (core dumped)
+
+This is caused by type mismatch of a variable paddr in function
+gcore_readmem_user() to hold a physical address, which is indicated by
+the following warning message:
+
+ libgcore/gcore_coredump.c: In function ‘gcore_readmem_user’:
+ libgcore/gcore_coredump.c:85:26: warning: passing argument 2 of
+ ‘uvtop_quiet’ from incompatible pointer type
+ [-Wincompatible-pointer-types]
+
+    if (!uvtop_quiet(addr, &paddr)) {
+                           ^~~~~~
+ libgcore/gcore_coredump.c:71:49: note: expected ‘physaddr_t *’ {aka
+ ‘long long unsigned int *’} but argument is of type ‘ulong *’ {aka ‘long
+ unsigned int *’}
+
+  static int uvtop_quiet(ulong vaddr, physaddr_t *paddr);
+                                      ~~~~~~~~~~~~^~~~~
+
+On ARM, long unsigned int has 4 byte length, while physaddr_t has 8
+byte length. The mismatch causes overwriting of stack variables.
+
+Fix this by changing the type of the variable paddr to physaddr_t.
+
+Signed-off-by: Vincent Whitchurch <vincent.whitchurch@axis.com>
+Signed-off-by: Lianbo Jiang <lijiang@redhat.com>
+---
+ src/libgcore/gcore_coredump.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/libgcore/gcore_coredump.c b/src/libgcore/gcore_coredump.c
+index c14cc116e951..424b0a40a42b 100644
+--- a/src/libgcore/gcore_coredump.c
++++ b/src/libgcore/gcore_coredump.c
+@@ -78,7 +78,8 @@ readswap(ulonglong pte_val, char *buf, ulong len, ulonglong vaddr)
+ 
+ void gcore_readmem_user(ulong addr, void *buf, long size, char *type)
+ {
+-	ulong paddr, cnt;
++	physaddr_t paddr;
++	ulong cnt;
+ 	char *bufptr = buf;
+ 
+ 	while (size > 0) {
+-- 
+2.37.1
+

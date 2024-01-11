@@ -1,0 +1,114 @@
+From 03f9360715731f18e4fdae7b30aa34b30dddcd57 Mon Sep 17 00:00:00 2001
+From: HATAYAMA Daisuke <d.hatayama@fujitsu.com>
+Date: Sat, 26 Mar 2022 21:42:02 +0900
+Subject: [PATCH 1/5] x86: Fix failure of collecting vsyscall mapping due to
+ change of enum type of vsyscall_mode
+
+vsyscall mapping fails to get collected because the commit
+bd49e16e3339 (x86/vsyscall: Add a new vsyscall=xonly mode) merged at
+kernel v5.2-rc7 added constant XONLY to the anonymous enumeration type
+of variable vsyscall_mode, which made the value of constant NONE
+change from 1 to 2.
+
+This commit fixes the issue by checking the value of constant NONE
+using gdb's print command and typeof operator since there's no utility
+function to handle such anonymous enumeration type currently in crash
+utility.
+
+Signed-off-by: HATAYAMA Daisuke <d.hatayama@fujitsu.com>
+Signed-off-by: Lianbo Jiang <lijiang@redhat.com>
+---
+ src/libgcore/gcore_x86.c | 56 ++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 54 insertions(+), 2 deletions(-)
+
+diff --git a/src/libgcore/gcore_x86.c b/src/libgcore/gcore_x86.c
+index 08e573c741f6..f334a85d4240 100644
+--- a/src/libgcore/gcore_x86.c
++++ b/src/libgcore/gcore_x86.c
+@@ -41,6 +41,9 @@ struct gcore_x86_table
+ static struct gcore_x86_table gcore_x86_table;
+ struct gcore_x86_table *gxt = &gcore_x86_table;
+ 
++static void gdb_run_command(char *cmd, char *buf, size_t size);
++static int get_vsyscall_mode_none(void);
++
+ #ifdef X86_64
+ static ulong gcore_x86_64_get_old_rsp(int cpu);
+ static ulong gcore_x86_64_get_per_cpu__old_rsp(int cpu);
+@@ -2367,6 +2370,54 @@ int gcore_is_arch_32bit_emulation(struct task_context *tc)
+ 	return FALSE;
+ }
+ 
++static void gdb_run_command(char *cmd, char *buf, size_t size)
++{
++	open_tmpfile();
++	if (!gdb_pass_through(cmd,
++			      pc->tmpfile,
++			      GNU_RETURN_ON_ERROR)) {
++		close_tmpfile();
++		error(FATAL, "gdb command failed: %s", cmd);
++	}
++	rewind(pc->tmpfile);
++	fgets(buf, size, pc->tmpfile);
++	close_tmpfile();
++}
++
++static int get_vsyscall_mode_none(void)
++{
++	static int none = -1;
++	char cmd[32], buf[BUFSIZE];
++	int i;
++
++	if (none != -1)
++		return none;
++
++	/*
++	 * Variable vsyscall_mode is of anonymous enumeration
++	 * type. Because there's no utility function in crash utility
++	 * to get value of each constant in specified anonymous
++	 * enumeration type, we have no choice but rely on gdb's print
++	 * command in combination with typeof operator.
++	 */
++	for (i = 0; i < 10; ++i) {
++		snprintf(cmd, sizeof(cmd), "p (typeof(vsyscall_mode))%d", i);
++		gdb_run_command(cmd, buf, sizeof(buf));
++		if (strstr(buf, "NONE"))
++			return none = i;
++	}
++
++	/*
++	 * When the above logic doesn't work as expected, use 2, which
++	 * is the value on the definition where vsyscall_mode was
++	 * first introduced at the commit 3ae36655b97a (x86-64: Rework
++	 * vsyscall emulation and add vsyscall= parameter).
++	 */
++	none = 2;
++
++	return none;
++}
++
+ /**
+  * Return an address to gate_vma.
+  */
+@@ -2377,7 +2428,8 @@ ulong gcore_arch_get_gate_vma(void)
+ 		return 0UL;
+ 
+ 	if (symbol_exists("vsyscall_mode")) {
+-		enum { ENUMERATE, NONE } vsyscall_mode;
++		int vsyscall_mode;
++		int none = get_vsyscall_mode_none();
+ 
+ 		readmem(symbol_value("vsyscall_mode"),
+ 			KVADDR,
+@@ -2386,7 +2438,7 @@ ulong gcore_arch_get_gate_vma(void)
+ 			"gcore_arch_get_gate_vma: vsyscall_mode",
+ 			gcore_verbose_error_handle());
+ 
+-		if (vsyscall_mode == NONE)
++		if (vsyscall_mode == none)
+ 			return 0UL;
+ 	}
+ 
+-- 
+2.37.1
+
