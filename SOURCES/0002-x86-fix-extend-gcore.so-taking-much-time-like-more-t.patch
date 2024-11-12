@@ -1,0 +1,67 @@
+From b3af265aa60251f282145bb0eee3b83d8a15ebb7 Mon Sep 17 00:00:00 2001
+From: HATAYAMA Daisuke <d.hatayama@fujitsu.com>
+Date: Mon, 18 Sep 2023 20:45:11 -0400
+Subject: [PATCH 2/2] x86: fix extend gcore.so taking much time like more than
+ 1 hour when huge thread group is present
+
+extend gcore.so command takes lengthy time such as more than 1 hour
+when huge thread group is present.
+
+The root cause of this issue is that we never take into account time
+complexity of function gcore_arch_vsyscall_has_vm_alwaysdump_flag()
+sufficiently, which iterates the task list and vma lists of each task
+to detect existence of VM_ALWAYS flag in a given crash dump and so has
+O(nm) where the n is the length of the task list and the m is the
+total number of vma among all tasks.
+
+To fix this issue, skip this process for the kernels whose version is
+equal to or larger than v3.4.0.
+
+Originally, this process was implemented to detect existence of
+VM_ALWAYS flag that was removed at the commit
+909af768e88867016f427264ae39d27a57b6a8ed (coredump: remove
+VM_ALWAYSDUMP flag) included at Linux kernel v3.4. However, the base
+kernel version of RHEL7.0 GA is 3.10.0-123.el7. Hence, the kernels for
+RHEL7 and later have included the commit. For RHEL7 and later, it's
+sufficient to conclude absence of the flag by checking kernel version
+of a given crash dump.
+
+The issue could still remain on RHEL6 and older, but we think it's
+acceptable because today we rarely handle crash dump files of RHEL6
+and older.
+
+Signed-off-by: HATAYAMA Daisuke <d.hatayama@fujitsu.com>
+Signed-off-by: Lianbo Jiang <lijiang@redhat.com>
+---
+ src/libgcore/gcore_x86.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/src/libgcore/gcore_x86.c b/src/libgcore/gcore_x86.c
+index 8878f79d4c08..3ddf5109ade0 100644
+--- a/src/libgcore/gcore_x86.c
++++ b/src/libgcore/gcore_x86.c
+@@ -2502,6 +2502,21 @@ int gcore_arch_vsyscall_has_vm_alwaysdump_flag(void)
+ 	struct task_context *tc;
+ 	int i;
+ 
++	/*
++	 * The commit 909af768e88867016f427264ae39d27a57b6a8ed
++	 * (coredump: remove VM_ALWAYSDUMP flag) of the Linux kernel
++	 * was merged at v3.4. We can say VM_ALWAYSDUMP flag doesn't
++	 * exist for the version 3.4.0 or later. The base kernel
++	 * version of RHEL7.0 GA is 3.10.0-123.el7. Hence, this
++	 * condition is expected to match RHEL7 and later RHEL major
++	 * versions. On the other hand, the commit
++	 * 909af768e88867016f427264ae39d27a57b6a8ed was backported
++	 * into the kernel package in RHEL6 and the exploring code is
++	 * still needed.
++	 */
++	if (THIS_KERNEL_VERSION >= LINUX(3, 4, 0))
++		return FALSE;
++
+ 	/*
+ 	 * For simplicity, consider that VM_ALWAYSDUMP was already not
+ 	 * present when maple tree was introduced.
+-- 
+2.45.1
+

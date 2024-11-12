@@ -2,8 +2,8 @@
 
 Summary: Gcore extension module for the crash utility
 Name: crash-gcore-command
-Version: 1.6.3
-Release: 2%{?dist}
+Version: 1.6.4
+Release: 1%{?dist}
 License: GPLv2
 Source0: https://github.com/fujitsu/crash-gcore/archive/v%{version}/%{name}-%{version}.tar.gz
 URL: https://github.com/fujitsu/crash-gcore
@@ -13,14 +13,8 @@ BuildRequires: crash-devel >= 5.1.5
 BuildRequires: gcc
 Requires: crash >= 5.1.5
 
-Patch0: 0001-coredump-use-MEMBER_-OFFSET-SIZE-instead-of-GCORE_-O.patch
-Patch1: 0002-gcore-defs-remove-definitions-and-initializations-fo.patch
-Patch2: 0003-gcore-fix-memory-allocation-failure-during-processin.patch
-Patch3: 0004-x86-Fix-failure-of-collecting-vsyscall-mapping-due-t.patch
-Patch4: 0005-coredump-fix-segmentation-fault-caused-by-type-misma.patch
-Patch5: 0006-elf-fix-warning-message-caused-by-type-mismatch-of-o.patch
-Patch6: 0007-coredump-fix-unexpected-truncation-of-generated-core.patch
-Patch7: 0008-gcore.mk-fix-mismatch-of-_FILE_OFFSET_BITS-when-buil.patch
+Patch0: 0001-coredump-fix-building-failure-due-to-undefined-macro.patch
+Patch1: 0002-x86-fix-extend-gcore.so-taking-much-time-like-more-t.patch
 
 %description
 Command for creating a core dump file of a user-space task that was
@@ -43,6 +37,9 @@ install -m 0755 -t %{buildroot}%{_libdir}/crash/extensions %{_builddir}/%{repona
 %license COPYING
 
 %changelog
+* Fri Jul 05 2024 Lianbo Jiang <lijiang@redhat.com> - 1.6.4-1
+- Rebase to upstream 1.6.4
+
 * Fri Nov 18 2022 Lianbo Jiang <lijiang@redhat.com> - 1.6.3-2
 - Update to the latest commit d2795659986d
 
