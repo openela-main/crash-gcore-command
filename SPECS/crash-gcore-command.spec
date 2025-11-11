@@ -3,7 +3,7 @@
 Summary: Gcore extension module for the crash utility
 Name: crash-gcore-command
 Version: 1.6.4
-Release: 8%{?dist}.1
+Release: 9%{?dist}
 License: GPL-2.0-only
 Source0: https://github.com/fujitsu/crash-gcore/archive/v%{version}/%{name}-%{version}.tar.gz
 URL: https://github.com/fujitsu/crash-gcore
@@ -14,8 +14,9 @@ BuildRequires: gcc
 Requires: crash >= 5.1.5
 
 Patch0: crash-gcore-1.6.4-coredump-fix-building-failure-due-to-undefined-macro.patch
-Patch1: 0001-gcore-update-set_context-with-upstream-counterpart.patch
-Patch2: 0001-x86-fix-the-issue-that-core-files-for-64-bit-tasks-a.patch
+Patch1: 0001-x86-fix-extend-gcore.so-taking-much-time-like-more-t.patch
+Patch2: 0001-gcore-update-set_context-with-upstream-counterpart.patch
+Patch3: 0001-x86-fix-the-issue-that-core-files-for-64-bit-tasks-a.patch
 
 %description
 Command for creating a core dump file of a user-space task that was
@@ -38,9 +39,8 @@ install -m 0755 -t %{buildroot}%{_libdir}/crash/extensions %{_builddir}/%{repona
 %license COPYING
 
 %changelog
-* Mon Jun 30 2025 Tao Liu <ltao@redhat.com> - 1.6.4-8.1
-- x86: fix the issue that core files for 64-bit tasks are generated in the 32-bit format
-- gcore: update set_context with upstream counterpart
+* Mon May 5 2025 Tao Liu <ltao@redhat.com> - 1.6.4-9
+- rebase to latest upstream e03ff7341a
 
 * Tue Oct 29 2024 Troy Dawson <tdawson@redhat.com> - 1.6.4-8
 - Bump release for October 2024 mass rebuild:
