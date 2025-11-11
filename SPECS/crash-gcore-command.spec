@@ -3,7 +3,7 @@
 Summary: Gcore extension module for the crash utility
 Name: crash-gcore-command
 Version: 1.6.4
-Release: 1%{?dist}
+Release: 2%{?dist}
 License: GPLv2
 Source0: https://github.com/fujitsu/crash-gcore/archive/v%{version}/%{name}-%{version}.tar.gz
 URL: https://github.com/fujitsu/crash-gcore
@@ -15,6 +15,8 @@ Requires: crash >= 5.1.5
 
 Patch0: 0001-coredump-fix-building-failure-due-to-undefined-macro.patch
 Patch1: 0002-x86-fix-extend-gcore.so-taking-much-time-like-more-t.patch
+Patch2: 0001-gcore-update-set_context-with-upstream-counterpart.patch
+Patch3: 0002-x86-fix-the-issue-that-core-files-for-64-bit-tasks-a.patch
 
 %description
 Command for creating a core dump file of a user-space task that was
@@ -37,6 +39,9 @@ install -m 0755 -t %{buildroot}%{_libdir}/crash/extensions %{_builddir}/%{repona
 %license COPYING
 
 %changelog
+* Mon May 05 2025 Lianbo Jiang <lijiang@redhat.com> - 1.6.4-2
+- Rebase to latest upstream e03ff7341a9a
+
 * Fri Jul 05 2024 Lianbo Jiang <lijiang@redhat.com> - 1.6.4-1
 - Rebase to upstream 1.6.4
 
